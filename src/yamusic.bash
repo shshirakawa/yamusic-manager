@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
-# YAMusic Manager
-# version: 2.1.2 Saturn
-# by Sh. Shirakawa
+cd / >/dev/null 2>&1 || true
 
 set -euo pipefail
 umask 022
 
-SCRIPT_VERSION="2.1.2"
+SCRIPT_VERSION="2.1.3"
 VERSION="$SCRIPT_VERSION Saturn"
 AUTHOR="Sh. Shirakawa"
 
@@ -28,12 +26,6 @@ flock -n 9 || {
     echo "Ошибка: yamusic уже запущен"
     exit 1
 }
-
-ensure_workdir() {
-    pwd >/dev/null 2>&1 || cd "$HOME" || cd /
-}
-
-ensure_workdir
 
 cleanup() {
     [[ -n "${TMP_DIR:-}" && -d "$TMP_DIR" ]] && rm -rf "$TMP_DIR"
