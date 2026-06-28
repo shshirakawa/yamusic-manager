@@ -2,40 +2,42 @@
 
 Simple Yandex Music installer and manager for Arch-based Linux distributions.
 
-Built for people who don't want to manually unpack `.deb` packages, fix permissions, repair Electron sandbox issues, or clean leftovers after updates.
+Built for users who don't want to manually unpack `.deb` packages, fix Electron sandbox permissions, repair broken installs, or clean leftovers after updates.
 
-YAMusic Manager handles everything automatically.
+YAMusic Manager automates the entire process.
 
 ---
 
 ## About
 
-Yandex officially ships only a Debian package for Linux.
+Yandex officially provides only a Debian package for Linux.
 
-That works fine on Debian/Ubuntu, but on Arch Linux, CachyOS and similar systems it requires manual extraction and installation.
+That works on Debian/Ubuntu, but on Arch Linux, CachyOS, and other Arch-based systems it requires manual extraction and setup.
 
-This project automates that process.
+YAMusic Manager solves that.
 
-It downloads the latest package directly from Yandex, extracts it, installs everything into the correct paths, applies permissions, updates desktop entries and icons, and cleans temporary files after itself.
+It downloads the latest stable package directly from Yandex servers, extracts it, installs files into the proper system locations, applies required permissions, refreshes desktop entries and icons, and fully cleans temporary data.
 
 No `dpkg`.
 No `apt`.
-No manual extraction.
+No manual unpacking.
 
-Just one command.
+One command.
 
 ---
 
 ## Features
 
-* Install Yandex Music from official Yandex servers
-* Update to the latest version
+* Install Yandex Music directly from official Yandex servers
+* Always download the latest version dynamically
+* Update installed version safely
 * Full uninstall without leftovers
 * Repair broken permissions and Electron sandbox
 * Launch directly from terminal
 * Clean application cache
-* Check installation status
-* Reset the manager itself
+* Check installation status and current version
+* Self-update the manager from GitHub RAW
+* Self-delete the manager completely
 
 ---
 
@@ -47,7 +49,7 @@ Works on:
 * CachyOS
 * EndeavourOS
 * Manjaro
-* Any Arch-based distribution
+* Any Arch-based Linux distribution
 
 Architecture:
 
@@ -94,7 +96,7 @@ Update:
 yamusic update
 ```
 
-Delete app:
+Delete Yandex Music completely:
 
 ```bash
 yamusic delete
@@ -106,28 +108,40 @@ Repair installation:
 yamusic repair
 ```
 
-Launch app:
+Launch application:
 
 ```bash
 yamusic launch
 ```
 
-Clean cache:
+Clean application cache:
 
 ```bash
 yamusic clean
 ```
 
-Check status:
+Check installation status:
 
 ```bash
 yamusic status
 ```
 
-Reset manager:
+Show manager version:
 
 ```bash
-yamusic reset
+yamusic version
+```
+
+Update manager itself:
+
+```bash
+yamusic self-update
+```
+
+Remove manager completely:
+
+```bash
+yamusic self-delete
 ```
 
 Show help:
@@ -138,15 +152,56 @@ yamusic help
 
 ---
 
+## Internal behavior
+
+YAMusic Manager automatically:
+
+* fetches the latest release metadata from Yandex
+* follows CDN redirects
+* validates package integrity
+* extracts package content without `dpkg`
+* installs files into `/opt` and `/usr/share`
+* fixes Electron sandbox permissions (`chrome-sandbox`)
+* updates desktop database and icon cache
+* cleans temporary files after completion
+* prevents concurrent execution with file locking
+
+---
+
+## Uninstall behavior
+
+### `yamusic delete`
+
+Fully removes:
+
+* application files
+* desktop entries
+* icons
+* docs
+* configs
+* cache
+* local state
+
+No leftover Yandex Music files remain.
+
+---
+
+### `yamusic self-delete`
+
+Fully removes:
+
+* yamusic binary
+* yamusic backup
+* temporary manager files
+* lock files
+
+Yandex Music itself remains untouched.
+
+---
+
 ## Screenshot
 
-Add your screenshot here:
-
-```text
-assets/screenshot.png
-```
-
-Example:
+Add screenshot here:
 
 ```md
 ![YAMusic Manager](assets/screenshot.png)
@@ -179,7 +234,7 @@ Not allowed:
 * redistribution
 * republishing
 * rebranding
-* commercial usage
+* commercial use
 * removing author watermark
 
 Read the full license in the `LICENSE` file.
