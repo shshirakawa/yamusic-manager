@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # YAMusic Manager
-# version: 2.1.1 Saturn
+# version: 2.1.2 Saturn
 # by Sh. Shirakawa
 
 set -euo pipefail
 umask 022
 
-SCRIPT_VERSION="2.1.1"
+SCRIPT_VERSION="2.1.2"
 VERSION="$SCRIPT_VERSION Saturn"
 AUTHOR="Sh. Shirakawa"
 
@@ -28,6 +28,12 @@ flock -n 9 || {
     echo "Ошибка: yamusic уже запущен"
     exit 1
 }
+
+ensure_workdir() {
+    pwd >/dev/null 2>&1 || cd "$HOME" || cd /
+}
+
+ensure_workdir
 
 cleanup() {
     [[ -n "${TMP_DIR:-}" && -d "$TMP_DIR" ]] && rm -rf "$TMP_DIR"
@@ -273,9 +279,8 @@ remove_app() {
         -delete 2>/dev/null || true
 
     rm -rf ~/.config/YandexMusic
-    # На случай
-    rm -rf ~/.config/"Яндекс Музыка"
     rm -rf ~/.config/yandexmusic
+    rm -rf ~/.config/"Яндекс Музыка"
     rm -rf ~/.local/share/YandexMusic
     rm -rf ~/.local/share/yandexmusic
     rm -rf ~/.cache/YandexMusic
