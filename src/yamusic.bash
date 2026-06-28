@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # YAMusic Manager
-# version: 1.2.1 Saturn
+# version: 2.0.0 Saturn
 # by Sh. Shirakawa
 
 set -euo pipefail
+umask 022
 
-VERSION="1.2.1 Saturn"
+SCRIPT_VERSION="2.0.0"
+VERSION="$SCRIPT_VERSION Saturn"
 AUTHOR="Sh. Shirakawa"
 
 APP_NAME="yandex-music"
@@ -44,32 +46,24 @@ help_menu() {
     banner
     echo "Команды:"
     echo ""
-    echo "install — установить Яндекс Музыку"
-    echo "update — обновить Яндекс Музыку"
-    echo "delete — полностью удалить Яндекс Музыку"
-    echo "repair — восстановить установку"
-    echo "launch — запустить приложение"
-    echo "clean — очистить кэш"
-    echo "status — показать статус"
-    echo "self-update — обновить yamusic manager"
-    echo "self-delete — удалить yamusic manager"
-    # Для приличия
-    echo "help — показать помощь"
+    echo "  install       — установить Яндекс Музыку"
+    echo "  update        — обновить Яндекс Музыку"
+    echo "  delete        — полностью удалить Яндекс Музыку"
+    echo "  repair        — восстановить установку"
+    echo "  launch        — запустить приложение"
+    echo "  clean         — очистить кэш"
+    echo "  status        — показать статус"
+    echo "  version       — показать версию менеджера"
+    echo "  self-update   — обновить yamusic manager"
+    echo "  self-delete   — удалить yamusic manager"
+    echo "  help          — показать помощь"
     echo ""
 }
 
 confirm() {
-    local message="$1"
-
-    read -rp "$message [y/N]: " answer
-
-    case "$answer" in
-        y|Y|д|Д) return 0 ;;
-        *)
-            echo "Операция отменена"
-            exit 0
-            ;;
-    esac
+    local answer
+    read -rp "$1 [y/N]: " answer
+    [[ "$answer" =~ ^([yY]|[дД])$ ]] || exit 0
 }
 
 require() {
@@ -98,12 +92,12 @@ check_sudo() {
 
 check_disk_space() {
     local free_kb
-    free_kb=$(df /tmp --output=avail | tail -n 1)
+    free_kb=$(df /tmp --output=avail | tail -n1)
 
-    if (( free_kb < 700000 )); then
-        echo "Ошибка: недостаточно свободного места"
+    (( free_kb >= 700000 )) || {
+        echo "Ошибка: недостаточно места"
         exit 1
-    fi
+    }
 }
 
 version_gt() {
@@ -124,10 +118,7 @@ get_latest_download_url() {
             --retry 3 \
             --retry-delay 2 \
             "$DOWNLOAD_META_URL"
-    )" || {
-        echo "Ошибка: не удалось получить metadata"
-        exit 1
-    }
+    )"
 
     [[ -n "$json" ]] || {
         echo "Ошибка: metadata пустой"
@@ -138,10 +129,7 @@ get_latest_download_url() {
         printf '%s\n' "$json" \
         | tr -d '\r' \
         | jq -er '.linux'
-    )" || {
-        echo "Ошибка: Linux package URL не найден"
-        exit 1
-    }
+    )"
 
     [[ "$DOWNLOAD_URL" =~ ^https://.*\.deb$ ]] || {
         echo "Ошибка: invalid package URL"
@@ -153,11 +141,10 @@ extract_app_version() {
     basename "$DOWNLOAD_URL" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+'
 }
 
-check_connection() {
-    curl --head --silent --fail "$DOWNLOAD_URL" >/dev/null || {
-        echo "Ошибка: сервер Яндекс Музыки недоступен"
-        exit 1
-    }
+get_installed_version() {
+    if [[ -x "$APP_BIN" ]]; then
+        "$APP_BIN" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true
+    fi
 }
 
 create_workspace() {
@@ -177,40 +164,48 @@ download_package() {
         -o "$PACKAGE_FILE"
 
     [[ -s "$PACKAGE_FILE" ]] || {
-        echo "Ошибка: скачанный пакет пуст"
+        echo "Ошибка: пакет пуст"
         exit 1
     }
 }
 
 validate_package() {
-    ar t "$PACKAGE_FILE" >/dev/null 2>&1 || {
+    ar t "$PACKAGE_FILE" >/dev/null || {
         echo "Ошибка: пакет повреждён"
+        exit 1
+    }
+
+    ar t "$PACKAGE_FILE" | grep -q '^data.tar' || {
+        echo "Ошибка: data archive не найден"
         exit 1
     }
 }
 
 install_files() {
-    echo "→ Распаковка пакета..."
+    echo "→ Распаковка..."
 
     cd "$TMP_DIR"
-
-    cp "$PACKAGE_FILE" ./package.deb
-    ar x package.deb >/dev/null
+    ar x "$PACKAGE_FILE" >/dev/null
 
     local data_archive
     data_archive="$(find . -name 'data.tar.*' | head -n1)"
 
-    [[ -n "$data_archive" ]] || {
-        echo "Ошибка: data archive не найден"
+    [[ -f "$data_archive" ]] || {
+        echo "Ошибка: data archive not found"
         exit 1
     }
 
     tar -xf "$data_archive"
 
-    echo "→ Установка файлов..."
+    echo "→ Установка..."
 
     sudo rsync -a opt/ /opt/
     sudo rsync -a usr/share/ /usr/share/
+
+    [[ -f "$APP_BIN" ]] || {
+        echo "Ошибка: binary not found"
+        exit 1
+    }
 
     sudo chmod +x "$APP_BIN"
 
@@ -230,12 +225,17 @@ perform_install() {
     check_disk_space
 
     get_latest_download_url
-    check_connection
 
-    local app_version
-    app_version="$(extract_app_version)"
+    local latest_version installed_version
+    latest_version="$(extract_app_version)"
+    installed_version="$(get_installed_version || true)"
 
-    echo "→ Найдена версия: $app_version"
+    echo "→ Найдена версия: $latest_version"
+
+    if [[ -n "$installed_version" && "$installed_version" == "$latest_version" ]]; then
+        echo "✓ Уже установлена актуальная версия"
+        exit 0
+    fi
 
     create_workspace
     download_package
@@ -247,7 +247,6 @@ install_app() {
     banner
     confirm "Установить Яндекс Музыку?"
     perform_install
-    echo ""
     echo "✓ Установка завершена"
 }
 
@@ -255,7 +254,6 @@ update_app() {
     banner
     confirm "Обновить Яндекс Музыку?"
     perform_install
-    echo ""
     echo "✓ Обновление завершено"
 }
 
@@ -264,8 +262,6 @@ remove_app() {
     confirm "Полностью удалить Яндекс Музыку?"
 
     check_sudo
-
-    echo "→ Полный purge..."
 
     sudo find /opt -maxdepth 1 \
         \( -iname '*yandex*music*' -o -iname '*music*yandex*' \) \
@@ -303,7 +299,6 @@ remove_app() {
     update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
     gtk-update-icon-cache /usr/share/icons/hicolor >/dev/null 2>&1 || true
 
-    echo ""
     echo "✓ Яндекс Музыка полностью удалена"
 }
 
@@ -325,11 +320,7 @@ repair_app() {
         sudo chmod 4755 "$APP_DIR/chrome-sandbox"
     fi
 
-    update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
-    gtk-update-icon-cache /usr/share/icons/hicolor >/dev/null 2>&1 || true
-
-    echo ""
-    echo "✓ Восстановление завершено"
+    echo "✓ Восстановлено"
 }
 
 launch_app() {
@@ -343,18 +334,17 @@ launch_app() {
     nohup "$APP_BIN" >/dev/null 2>&1 &
     disown
 
-    echo "✓ Яндекс Музыка запущена"
+    echo "✓ Запущено"
 }
 
 clean_cache() {
     banner
-    confirm "Очистить кэш Яндекс Музыки?"
+    confirm "Очистить кэш?"
 
     rm -rf ~/.cache/yandexmusic
     rm -rf ~/.cache/yandexmusic-updater
     rm -rf ~/.cache/YandexMusic
 
-    echo ""
     echo "✓ Кэш очищен"
 }
 
@@ -362,19 +352,23 @@ show_status() {
     banner
 
     if [[ -x "$APP_BIN" ]]; then
-        echo "✓ Яндекс Музыка установлена"
+        echo "✓ Установлено"
+        local current_version
+        current_version="$(get_installed_version || true)"
+        [[ -n "$current_version" ]] && echo "Версия: $current_version"
     else
-        echo "✗ Яндекс Музыка не установлена"
+        echo "✗ Не установлено"
     fi
+}
+
+show_version() {
+    banner
 }
 
 self_update() {
     banner
-    echo "→ Проверка обновлений менеджера..."
 
-    local current_script
-    local remote_script
-    local remote_version
+    local current_script remote_script remote_version
 
     current_script="$(command -v yamusic || true)"
 
@@ -394,15 +388,10 @@ self_update() {
         "$SELF_UPDATE_URL" \
         -o "$remote_script"
 
-    bash -n "$remote_script" || {
-        echo "Ошибка: новый скрипт повреждён"
-        exit 1
-    }
+    bash -n "$remote_script"
 
     remote_version="$(
-        grep '^VERSION=' "$remote_script" \
-        | head -n1 \
-        | cut -d'"' -f2
+        awk -F'"' '/^SCRIPT_VERSION=/{print $2; exit}' "$remote_script"
     )"
 
     [[ -n "$remote_version" ]] || {
@@ -410,7 +399,7 @@ self_update() {
         exit 1
     }
 
-    if version_gt "$remote_version" "$VERSION"; then
+    if version_gt "$remote_version" "$SCRIPT_VERSION"; then
         check_sudo
 
         sudo cp "$current_script" "${current_script}.backup"
@@ -422,11 +411,9 @@ self_update() {
         rm -f "$LOCK_FILE"
         find /tmp -maxdepth 1 -name 'yamusic*' -exec rm -rf {} + 2>/dev/null || true
 
-        echo ""
-        echo "✓ YAMusic Manager обновлён до версии $remote_version"
+        echo "✓ Обновлено до $remote_version"
     else
-        echo ""
-        echo "✓ YAMusic Manager уже актуален ($VERSION)"
+        echo "✓ Уже актуально"
     fi
 }
 
@@ -448,42 +435,20 @@ self_delete() {
     hash -r
     sync
 
-    echo ""
-    echo "✓ YAMusic Manager полностью удалён"
+    echo "✓ YAMusic Manager удалён"
 }
 
 case "${1:-}" in
-    install)
-        install_app
-        ;;
-    update)
-        update_app
-        ;;
-    delete)
-        remove_app
-        ;;
-    repair)
-        repair_app
-        ;;
-    launch)
-        launch_app
-        ;;
-    clean)
-        clean_cache
-        ;;
-    status)
-        show_status
-        ;;
-    self-update)
-        self_update
-        ;;
-    self-delete)
-        self_delete
-        ;;
-    help|--help|-h)
-        help_menu
-        ;;
-    *)
-        help_menu
-        ;;
+    install) install_app ;;
+    update) update_app ;;
+    delete) remove_app ;;
+    repair) repair_app ;;
+    launch) launch_app ;;
+    clean) clean_cache ;;
+    status) show_status ;;
+    version) show_version ;;
+    self-update) self_update ;;
+    self-delete) self_delete ;;
+    help|--help|-h) help_menu ;;
+    *) help_menu ;;
 esac
