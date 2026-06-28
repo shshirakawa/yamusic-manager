@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # YAMusic Manager
-# version: 2.0.0 Saturn
+# version: 2.1.0 Saturn P0
 # by Sh. Shirakawa
 
 set -euo pipefail
 umask 022
 
-SCRIPT_VERSION="2.0.0"
-VERSION="$SCRIPT_VERSION Saturn"
+SCRIPT_VERSION="2.1.0"
+VERSION="$SCRIPT_VERSION Saturn [P0]"
 AUTHOR="Sh. Shirakawa"
 
-APP_NAME="yandex-music"
+APP_NAME="Яндекс Музыка"
 APP_DIR="/opt/$APP_NAME"
 APP_BIN="$APP_DIR/yandexmusic"
 
@@ -263,28 +263,13 @@ remove_app() {
 
     check_sudo
 
-    sudo find /opt -maxdepth 1 \
-        \( -iname '*yandex*music*' -o -iname '*music*yandex*' \) \
-        -exec rm -rf {} + 2>/dev/null || true
-
-    sudo find /usr/share/applications \
-        -type f \
-        \( -iname '*yandex*music*.desktop' -o -iname '*music*yandex*.desktop' \) \
-        -delete 2>/dev/null || true
+    sudo rm -rf "$APP_DIR"
+    sudo rm -f /usr/share/applications/yandexmusic.desktop
+    sudo rm -rf /usr/share/doc/yandexmusic
 
     sudo find /usr/share/icons \
         -type f \
-        \( -iname '*yandex*music*' -o -iname '*music*yandex*' \) \
-        -delete 2>/dev/null || true
-
-    sudo find /usr/share/metainfo \
-        -type f \
-        \( -iname '*yandex*music*' -o -iname '*music*yandex*' \) \
-        -delete 2>/dev/null || true
-
-    sudo find /usr/share/dbus-1/services \
-        -type f \
-        \( -iname '*yandex*music*' -o -iname '*music*yandex*' \) \
+        -name "yandexmusic*" \
         -delete 2>/dev/null || true
 
     rm -rf ~/.config/YandexMusic
@@ -353,8 +338,10 @@ show_status() {
 
     if [[ -x "$APP_BIN" ]]; then
         echo "✓ Установлено"
+
         local current_version
         current_version="$(get_installed_version || true)"
+
         [[ -n "$current_version" ]] && echo "Версия: $current_version"
     else
         echo "✗ Не установлено"
