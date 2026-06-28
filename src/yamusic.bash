@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # YAMusic Manager
-# version: 2.1.0 Saturn P0
+# version: 2.1.1 Saturn
 # by Sh. Shirakawa
 
 set -euo pipefail
 umask 022
 
-SCRIPT_VERSION="2.1.0"
-VERSION="$SCRIPT_VERSION Saturn [P0]"
+SCRIPT_VERSION="2.1.1"
+VERSION="$SCRIPT_VERSION Saturn"
 AUTHOR="Sh. Shirakawa"
 
 APP_NAME="Яндекс Музыка"
@@ -273,6 +273,8 @@ remove_app() {
         -delete 2>/dev/null || true
 
     rm -rf ~/.config/YandexMusic
+    # На случай
+    rm -rf ~/.config/"Яндекс Музыка"
     rm -rf ~/.config/yandexmusic
     rm -rf ~/.local/share/YandexMusic
     rm -rf ~/.local/share/yandexmusic
