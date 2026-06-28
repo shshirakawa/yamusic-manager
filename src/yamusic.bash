@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # YAMusic Manager
-# version: 1.2.0 Saturn
+# version: 1.2.1 Saturn
 # by Sh. Shirakawa
 
 set -euo pipefail
 
-VERSION="1.2.0 Saturn"
+VERSION="1.2.1 Saturn"
 AUTHOR="Sh. Shirakawa"
 
 APP_NAME="yandex-music"
@@ -115,18 +115,36 @@ get_latest_download_url() {
 
     echo "→ Получение актуальной версии..."
 
-    json="$(curl \
-        --fail \
-        --silent \
-        --show-error \
-        --retry 3 \
-        --retry-delay 2 \
-        "$DOWNLOAD_META_URL")"
+    json="$(
+        curl \
+            --fail \
+            --silent \
+            --show-error \
+            --location \
+            --retry 3 \
+            --retry-delay 2 \
+            "$DOWNLOAD_META_URL"
+    )" || {
+        echo "Ошибка: не удалось получить metadata"
+        exit 1
+    }
 
-    DOWNLOAD_URL="$(printf '%s' "$json" | jq -r '.linux')"
+    [[ -n "$json" ]] || {
+        echo "Ошибка: metadata пустой"
+        exit 1
+    }
 
-    [[ -n "$DOWNLOAD_URL" && "$DOWNLOAD_URL" != "null" ]] || {
+    DOWNLOAD_URL="$(
+        printf '%s\n' "$json" \
+        | tr -d '\r' \
+        | jq -er '.linux'
+    )" || {
         echo "Ошибка: Linux package URL не найден"
+        exit 1
+    }
+
+    [[ "$DOWNLOAD_URL" =~ ^https://.*\.deb$ ]] || {
+        echo "Ошибка: invalid package URL"
         exit 1
     }
 }
